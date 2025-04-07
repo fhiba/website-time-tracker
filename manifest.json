@@ -11,7 +11,9 @@
     {
       "matches": [
         "*://*.twitter.com/*",
+        "*://x.com/*",
         "*://*.reddit.com/*",
+        "*://redd.it/*",
         "*://www.facebook.com/marketplace/*"
       ],
       "js": ["content.js"]

@@ -1,16 +1,23 @@
+// Credenciales de Supabase
 const SUPABASE_URL = "https://nmhphmzygssjibrzsoqn.supabase.co";
 const SUPABASE_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5taHBobXp5Z3Nzamlicnpzb3FuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQwNjI4MDEsImV4cCI6MjA1OTYzODgwMX0.IXvZ_NOMbdy79Ut8ofZSzLRk06DK7-EABwSN4kU5pQk";
 
-// Variables globales para trackeo
+// Variables globales para el tracking
 let currentTabId = null;
 let currentSite = null;
 let startTime = null;
 
-// Lista de sitios a trackear
-const TRACKED_SITES = ["twitter.com", "reddit.com", "facebook.com/marketplace"];
+// Lista de sitios a trackear (incluye dominios alternativos)
+const TRACKED_SITES = [
+  "twitter.com",
+  "x.com",
+  "reddit.com",
+  "redd.it",
+  "facebook.com/marketplace",
+];
 
-// Devuelve el sitio que coincide con alguna regla de TRACKED_SITES o null
+// Determina si la URL pertenece a un sitio trackeado
 function getTrackedSite(url) {
   for (const site of TRACKED_SITES) {
     if (url.includes(site)) {
@@ -20,9 +27,8 @@ function getTrackedSite(url) {
   return null;
 }
 
-// Función para enviar el tiempo a Supabase
+// Envía el tiempo a Supabase; se espera que el usuario haya guardado su username
 async function sendTimeToSupabase(site, seconds) {
-  // Recuperar el nombre de usuario guardado en chrome.storage.sync
   chrome.storage.sync.get(["username"], async (syncData) => {
     const username = syncData.username;
     if (!username) {
@@ -58,7 +64,7 @@ async function sendTimeToSupabase(site, seconds) {
   });
 }
 
-// Guarda el tiempo acumulado para el sitio en chrome.storage.local (opcional, si quieres persistir localmente)
+// Opcional: Guarda el tiempo acumulado localmente
 function saveTimeLocal(site, seconds) {
   const key = `time_${site}`;
   chrome.storage.local.get([key], (result) => {
@@ -67,29 +73,23 @@ function saveTimeLocal(site, seconds) {
   });
 }
 
-// Maneja el cambio de pestaña o actualización
+// Maneja el cambio de pestaña o actualizaciones
 function handleTabChange(tabId) {
   chrome.tabs.get(tabId, (tab) => {
     if (!tab.url) return;
     const site = getTrackedSite(tab.url);
 
-    // Si ya estaba trackeando un sitio, calcular el tiempo y enviarlo
+    // Si había iniciado el tracking para un sitio, calcular y enviar el tiempo acumulado
     if (startTime && currentSite) {
       const timeSpent = Math.floor((Date.now() - startTime) / 1000);
-
-      // Opcional: guardar localmente
       saveTimeLocal(currentSite, timeSpent);
-
-      // Envío automático a Supabase
       sendTimeToSupabase(currentSite, timeSpent);
-
-      // Resetear variables
       startTime = null;
       currentSite = null;
       currentTabId = null;
     }
 
-    // Si la nueva pestaña es de un sitio trackeado, iniciar tracking
+    // Inicia el tracking si la pestaña corresponde a un sitio trackeado
     if (site) {
       currentTabId = tabId;
       currentSite = site;
@@ -98,7 +98,7 @@ function handleTabChange(tabId) {
   });
 }
 
-// Escuchar cambios de pestaña
+// Escuchar activación de pestañas
 chrome.tabs.onActivated.addListener((activeInfo) => {
   handleTabChange(activeInfo.tabId);
 });
@@ -110,7 +110,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 });
 
-// Cuando la pestaña se cierra, si es la actual, enviar el tiempo
+// Enviar tiempo al cerrar la pestaña
 chrome.runtime.onMessage.addListener((msg, sender) => {
   if (
     msg === "tracked_tab_closed" &&
@@ -120,7 +120,6 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
     const timeSpent = Math.floor((Date.now() - startTime) / 1000);
     saveTimeLocal(currentSite, timeSpent);
     sendTimeToSupabase(currentSite, timeSpent);
-
     startTime = null;
     currentSite = null;
     currentTabId = null;
