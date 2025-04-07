@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Multi-Site Time Tracker</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        padding: 10px;
+      }
+      input,
+      button {
+        margin-bottom: 10px;
+      }
+      pre {
+        background: #f4f4f4;
+        padding: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Tu nombre de usuario</h2>
+    <input id="username" type="text" placeholder="Ingresa tu usuario" />
+    <button id="saveUser">Guardar usuario</button>
+    <h2>Tiempos acumulados</h2>
+    <div id="times">Cargando...</div>
+    <button id="send">Enviar tiempos</button>
+    <h2>Leaderboard</h2>
+    <pre id="board">Cargando...</pre>
+    <script src="popup.js"></script>
+  </body>
+</html>

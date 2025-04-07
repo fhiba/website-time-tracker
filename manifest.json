@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Multi-Site Time Tracker",
+  "version": "1.0",
+  "description": "Track time spent on different sites (Twitter, Reddit, Facebook Marketplace)",
+  "permissions": ["tabs", "storage"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.twitter.com/*",
+        "*://*.reddit.com/*",
+        "*://www.facebook.com/marketplace/*"
+      ],
+      "js": ["content.js"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}
