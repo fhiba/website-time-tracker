@@ -1,114 +1,293 @@
-document.addEventListener("DOMContentLoaded", () => {
-  const siteTimesDiv = document.getElementById("site-times");
-  const boardDiv = document.getElementById("board");
-  const usernameInput = document.getElementById("username");
-  const saveBtn = document.getElementById("save-btn");
-  const refreshLeaderboardBtn = document.getElementById("refresh-leaderboard");
+// Mapeo de sitios para IDs y nombres
+const SITE_MAPPING = {
+  1: { name: "Twitter", elemId: "time-twitter" },
+  2: { name: "Reddit", elemId: "time-reddit" },
+  3: { name: "YouTube", elemId: "time-youtube" },
+  4: { name: "Facebook Marketplace", elemId: "time-facebook" },
+  5: { name: "ChatGPT", elemId: "time-chatgpt" },
+};
 
-  // Función para formatear segundos a "Xm Ys"
-  function formatSeconds(seconds) {
-    const min = Math.floor(seconds / 60);
-    const sec = seconds % 60;
-    return `${min}m ${sec}s`;
+// Variables globales
+let currentUser = null;
+let timerInterval = null;
+let startTime = null;
+let isTracking = false;
+let leaderboardData = {};
+let currentLeaderboardSite = "Twitter";
+
+// Elementos DOM
+const loginSection = document.getElementById("login-section");
+const userSection = document.getElementById("user-section");
+const trackingStatus = document.getElementById("tracking-status");
+const timeStats = document.getElementById("time-stats");
+const leaderboardSection = document.getElementById("leaderboard-section");
+const loginForm = document.getElementById("login-form");
+const usernameInput = document.getElementById("username");
+const userNameSpan = document.getElementById("user-name");
+const logoutBtn = document.getElementById("logout-btn");
+const currentSiteSpan = document.getElementById("current-site");
+const trackingStateSpan = document.getElementById("tracking-state");
+const timerElement = document.getElementById("timer");
+const refreshLeaderboardBtn = document.getElementById("refresh-leaderboard");
+const leaderboardTabBtns = document.querySelectorAll(".tab-btn");
+
+// Inicializar
+document.addEventListener("DOMContentLoaded", async () => {
+  // Cargar usuario actual
+  const data = await chrome.storage.local.get(["currentUser"]);
+  if (data.currentUser) {
+    currentUser = data.currentUser;
+    showLoggedInUI();
   }
 
-  // Limpia los contenedores para evitar duplicados
-  siteTimesDiv.innerHTML = "";
-  boardDiv.innerHTML = "Loading...";
+  // Configurar eventos
+  setupEventListeners();
 
-  // Definir grupos de dominios para unificar los tiempos
-  const siteGroups = {
-    Twitter: ["twitter.com", "x.com"],
-    Reddit: ["reddit.com", "redd.it"],
-    "Facebook Marketplace": ["facebook.com/marketplace"],
-  };
+  // Actualizar estado de seguimiento
+  updateTrackingStatus();
 
-  // Obtener todos los datos almacenados en chrome.storage.local y agruparlos
-  chrome.storage.local.get(null, (result) => {
-    Object.entries(siteGroups).forEach(([groupName, domains]) => {
-      let totalSeconds = 0;
-      domains.forEach((domain) => {
-        const key = `time_${domain}`;
-        totalSeconds += parseInt(result[key] || 0, 10);
-      });
+  // Actualizar estadísticas de tiempo
+  updateTimeStats();
 
-      const groupDiv = document.createElement("div");
-      groupDiv.className = "site-entry";
-      groupDiv.innerHTML = `
-        <span>${groupName}</span>
-        <span>${formatSeconds(totalSeconds)}</span>
-      `;
-      siteTimesDiv.appendChild(groupDiv);
-    });
-  });
+  // Cargar tabla de clasificación
+  loadLeaderboard();
+});
 
-  // Cargar el username guardado, si existe
-  chrome.storage.sync.get(["username"], (data) => {
-    if (data.username) {
-      usernameInput.value = data.username;
-    }
-  });
-
-  // Guardar el username
-  saveBtn.addEventListener("click", () => {
+// Configurar eventos
+function setupEventListeners() {
+  // Formulario de inicio de sesión
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
     const username = usernameInput.value.trim();
     if (username) {
-      chrome.storage.sync.set({ username }, () => {
-        alert("Username saved!");
-      });
+      await handleLogin(username);
     }
   });
 
-  // Función para cargar el leaderboard desde Supabase
-  async function loadLeaderboard() {
-    const SUPABASE_URL = "https://nmhphmzygssjibrzsoqn.supabase.co";
-    const SUPABASE_KEY =
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5taHBobXp5Z3Nzamlicnpzb3FuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQwNjI4MDEsImV4cCI6MjA1OTYzODgwMX0.IXvZ_NOMbdy79Ut8ofZSzLRk06DK7-EABwSN4kU5pQk";
+  // Botón de cierre de sesión
+  logoutBtn.addEventListener("click", handleLogout);
 
-    try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/user_times?select=*`, {
-        headers: {
-          apikey: SUPABASE_KEY,
-          Authorization: `Bearer ${SUPABASE_KEY}`,
-        },
-      });
-      const data = await res.json();
+  // Botón de actualizar tabla de clasificación
+  refreshLeaderboardBtn.addEventListener("click", loadLeaderboard);
 
-      // Agrupar tiempos por usuario
-      const leaderboardMap = {};
-      data.forEach((row) => {
-        if (!leaderboardMap[row.username]) {
-          leaderboardMap[row.username] = 0;
-        }
-        leaderboardMap[row.username] += row.time_spent;
-      });
+  // Botones de pestañas de la tabla de clasificación
+  leaderboardTabBtns.forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const site = e.target.dataset.site;
+      currentLeaderboardSite = site;
 
-      // Ordenar de mayor a menor y construir el HTML
-      const leaderboardArr = Object.entries(leaderboardMap).sort(
-        (a, b) => b[1] - a[1],
-      );
-      let boardHTML = "";
-      leaderboardArr.forEach(([user, time]) => {
-        boardHTML += `
-          <div class="leaderboard-entry">
-            <span>${user}</span>
-            <span>${formatSeconds(time)}</span>
-          </div>
-        `;
-      });
-      boardDiv.innerHTML = boardHTML || "No data available.";
-    } catch (error) {
-      console.error(error);
-      boardDiv.innerHTML = "Error loading leaderboard.";
+      // Actualizar clase activa
+      leaderboardTabBtns.forEach((b) => b.classList.remove("active"));
+      e.target.classList.add("active");
+
+      // Actualizar tabla
+      updateLeaderboardTable();
+    });
+  });
+}
+
+// Manejar inicio de sesión
+async function handleLogin(username) {
+  try {
+    // Enviar mensaje al background script
+    const response = await chrome.runtime.sendMessage({
+      action: "login",
+      username: username,
+    });
+
+    if (response.success) {
+      // Obtener usuario actual
+      const data = await chrome.storage.local.get(["currentUser"]);
+      currentUser = data.currentUser;
+      console.log("no user");
+
+      // Mostrar UI de usuario conectado
+      showLoggedInUI();
+      console.log("no user 1");
+
+      // Actualizar estadísticas de tiempo
+      updateTimeStats();
+      console.log("no user 2");
+
+      // Cargar tabla de clasificación
+      loadLeaderboard();
+      console.log("no user 3");
     }
+  } catch (error) {
+    console.error("Error al iniciar sesión:", error);
+    console.log("no user 4" + error);
+    //alert("Error al iniciar sesión. Inténtalo de nuevo.");
+  }
+}
+
+// Manejar cierre de sesión
+async function handleLogout() {
+  try {
+    // Limpiar datos de usuario
+    await chrome.storage.local.set({ currentUser: null });
+    currentUser = null;
+
+    // Mostrar UI de inicio de sesión
+    showLoginUI();
+  } catch (error) {
+    console.error("Error al cerrar sesión:", error);
+  }
+}
+
+// Mostrar UI de usuario conectado
+function showLoggedInUI() {
+  loginSection.classList.add("hidden");
+  userSection.classList.remove("hidden");
+  trackingStatus.classList.remove("hidden");
+  timeStats.classList.remove("hidden");
+  leaderboardSection.classList.remove("hidden");
+
+  userNameSpan.textContent = currentUser ? currentUser.name : "";
+}
+
+// Mostrar UI de inicio de sesión
+function showLoginUI() {
+  loginSection.classList.remove("hidden");
+  userSection.classList.add("hidden");
+  trackingStatus.classList.add("hidden");
+  timeStats.classList.add("hidden");
+  leaderboardSection.classList.add("hidden");
+
+  // Limpiar formulario
+  loginForm.reset();
+}
+
+// Actualizar estado de seguimiento
+async function updateTrackingStatus() {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: "getTimeData",
+    });
+
+    if (response) {
+      // Actualizar elementos de la UI
+      currentSiteSpan.textContent = response.currentSite || "Ninguno";
+      trackingStateSpan.textContent = response.isTracking
+        ? "Activo"
+        : "Inactivo";
+
+      // Actualizar temporizador
+      if (response.isTracking && !isTracking) {
+        // Iniciar temporizador
+        startTimer();
+      } else if (!response.isTracking && isTracking) {
+        // Detener temporizador
+        stopTimer();
+      }
+
+      isTracking = response.isTracking;
+    }
+  } catch (error) {
+    console.error("Error al actualizar estado de seguimiento:", error);
   }
 
-  // Cargar el leaderboard inicialmente
-  loadLeaderboard();
+  // Programar próxima actualización
+  setTimeout(updateTrackingStatus, 1000);
+}
 
-  // Refrescar leaderboard al hacer click
-  refreshLeaderboardBtn.addEventListener("click", () => {
-    boardDiv.innerHTML = "Loading...";
-    loadLeaderboard();
+// Actualizar estadísticas de tiempo
+async function updateTimeStats() {
+  try {
+    const data = await chrome.storage.local.get(["timeData"]);
+    const timeData = data.timeData || {};
+
+    // Actualizar cada sitio
+    Object.keys(SITE_MAPPING).forEach((siteId) => {
+      const site = SITE_MAPPING[siteId];
+      const timeElement = document.getElementById(site.elemId);
+
+      if (timeElement) {
+        const timeMs = timeData[siteId] || 0;
+        timeElement.textContent = formatTime(timeMs);
+      }
+    });
+  } catch (error) {
+    console.error("Error al actualizar estadísticas de tiempo:", error);
+  }
+}
+
+// Iniciar temporizador
+function startTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+  }
+
+  startTime = Date.now();
+
+  timerInterval = setInterval(() => {
+    const elapsed = Date.now() - startTime;
+    timerElement.textContent = formatTime(elapsed);
+  }, 1000);
+
+  isTracking = true;
+}
+
+// Detener temporizador
+function stopTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+
+  timerElement.textContent = "00:00:00";
+  isTracking = false;
+}
+
+// Cargar tabla de clasificación
+async function loadLeaderboard() {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: "getLeaderboard",
+    });
+
+    if (response && response.leaderboard) {
+      leaderboardData = response.leaderboard;
+      updateLeaderboardTable();
+    }
+  } catch (error) {
+    console.error("Error al cargar tabla de clasificación:", error);
+  }
+}
+
+// Actualizar tabla de clasificación
+function updateLeaderboardTable() {
+  const leaderboardBody = document.getElementById("leaderboard-body");
+  leaderboardBody.innerHTML = "";
+
+  const siteData = leaderboardData[currentLeaderboardSite] || [];
+
+  if (siteData.length === 0) {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td colspan="3" class="text-center">No hay datos disponibles</td>
+    `;
+    leaderboardBody.appendChild(row);
+    return;
+  }
+
+  // Crear filas para cada usuario
+  siteData.forEach((item, index) => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${index + 1}</td>
+      <td>${item.username}</td>
+      <td>${item.time}</td>
+    `;
+    leaderboardBody.appendChild(row);
   });
-});
+}
+
+// Formatear tiempo en milisegundos a formato legible
+function formatTime(ms) {
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}

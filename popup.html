@@ -1,94 +1,100 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Usage Tracker</title>
-    <style>
-      body {
-        background-color: #f7f7f7;
-        font-family: Arial, sans-serif;
-        padding: 15px;
-        margin: 0;
-        min-width: 300px;
-        color: #333;
-      }
-      h1,
-      h2 {
-        margin: 0 0 10px;
-        font-weight: bold;
-      }
-      h1 {
-        font-size: 1.4em;
-        margin-bottom: 15px;
-      }
-      h2 {
-        font-size: 1.2em;
-        margin-top: 20px;
-        margin-bottom: 10px;
-      }
-      input[type="text"] {
-        width: 100%;
-        padding: 8px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        margin-bottom: 10px;
-        box-sizing: border-box;
-      }
-      button {
-        width: 100%;
-        padding: 10px;
-        border: none;
-        border-radius: 4px;
-        color: white;
-        cursor: pointer;
-        font-size: 1em;
-        margin-bottom: 10px;
-      }
-      #save-btn {
-        background-color: #007bff;
-      }
-      #refresh-leaderboard {
-        background-color: #28a745;
-      }
-      .site-entry,
-      .leaderboard-entry {
-        background-color: white;
-        padding: 10px;
-        margin-bottom: 8px;
-        border-radius: 4px;
-        display: flex;
-        justify-content: space-between;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-      }
-      #board {
-        background-color: white;
-        padding: 10px;
-        border-radius: 4px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        min-height: 50px;
-      }
-    </style>
-    <script src="popup.js" defer></script>
+    <title>Site Time Tracker</title>
+    <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
-    <h1>Usage Tracker</h1>
+    <div class="container">
+      <h1>Tracker de Tiempo</h1>
 
-    <div id="user-section">
-      <label for="username">Your username</label>
-      <input id="username" type="text" placeholder="e.g. pepito" />
-      <button id="save-btn">Save Username</button>
+      <!-- Login Form -->
+      <div id="login-section" class="section">
+        <h2>Iniciar Sesión</h2>
+        <form id="login-form">
+          <div class="form-group">
+            <label for="username">Usuario:</label>
+            <input type="text" id="username" required />
+          </div>
+          <button type="submit" class="btn">Ingresar</button>
+        </form>
+      </div>
+
+      <!-- User Info Section -->
+      <div id="user-section" class="section hidden">
+        <h2>Bienvenido, <span id="user-name"></span></h2>
+        <button id="logout-btn" class="btn">Cerrar Sesión</button>
+      </div>
+
+      <!-- Tracking Status -->
+      <div id="tracking-status" class="section hidden">
+        <h2>Estado de Seguimiento</h2>
+        <div class="status">
+          <p>Sitio actual: <span id="current-site">Ninguno</span></p>
+          <p>Estado: <span id="tracking-state">Inactivo</span></p>
+          <div id="timer" class="timer">00:00:00</div>
+        </div>
+      </div>
+
+      <!-- Time Statistics -->
+      <div id="time-stats" class="section hidden">
+        <h2>Estadísticas de Tiempo</h2>
+        <div class="stats-container">
+          <div class="site-time">
+            <h3>Twitter</h3>
+            <p class="time" id="time-twitter">00:00:00</p>
+          </div>
+          <div class="site-time">
+            <h3>Reddit</h3>
+            <p class="time" id="time-reddit">00:00:00</p>
+          </div>
+          <div class="site-time">
+            <h3>YouTube</h3>
+            <p class="time" id="time-youtube">00:00:00</p>
+          </div>
+          <div class="site-time">
+            <h3>Facebook Marketplace</h3>
+            <p class="time" id="time-facebook">00:00:00</p>
+          </div>
+          <div class="site-time">
+            <h3>ChatGPT</h3>
+            <p class="time" id="time-chatgpt">00:00:00</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Leaderboard -->
+      <div id="leaderboard-section" class="section hidden">
+        <h2>Tabla de Clasificación</h2>
+        <div class="leaderboard-nav">
+          <button class="tab-btn active" data-site="Twitter">Twitter</button>
+          <button class="tab-btn" data-site="Reddit">Reddit</button>
+          <button class="tab-btn" data-site="YouTube">YouTube</button>
+          <button class="tab-btn" data-site="Facebook Marketplace">
+            Facebook
+          </button>
+          <button class="tab-btn" data-site="ChatGPT">ChatGPT</button>
+        </div>
+        <div class="leaderboard-content">
+          <table id="leaderboard-table">
+            <thead>
+              <tr>
+                <th>Posición</th>
+                <th>Usuario</th>
+                <th>Tiempo</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboard-body">
+              <!-- Leaderboard data will be inserted here -->
+            </tbody>
+          </table>
+        </div>
+        <button id="refresh-leaderboard" class="btn">Actualizar</button>
+      </div>
     </div>
 
-    <div id="times-section">
-      <h2>Time per Site</h2>
-      <div id="site-times"></div>
-    </div>
-
-    <div id="leaderboard-section">
-      <h2>Leaderboard</h2>
-      <div id="board">Loading...</div>
-      <button id="refresh-leaderboard">Refresh Leaderboard</button>
-    </div>
+    <script src="popup.js"></script>
   </body>
 </html>
